@@ -6,7 +6,7 @@ LABEL org.opencontainers.image.authors="infocyph,abmmhasan"
 ENV APACHE_LOG_DIR=/var/log/apache2
 ENV SERVER_NAME=localhost
 RUN apk update && \
-    apk add --no-cache apache2-utils mod_fcgid
+    apk add --no-cache apache2-utils apache-mod-fcgid
 COPY scripts/update_httpd.sh /usr/local/bin/update_httpd.sh
 RUN chmod +x /usr/local/bin/update_httpd.sh && /usr/local/bin/update_httpd.sh
 WORKDIR /app
