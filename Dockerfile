@@ -8,7 +8,7 @@ ENV SERVER_NAME=localhost
 RUN apk update && \
     apk add --no-cache apache2-utils mod_fcgid && \
     rm -rf /var/cache/apk/*
-COPY update_httpd.sh /usr/local/bin/update_httpd.sh
+COPY scripts/update_httpd.sh /usr/local/bin/update_httpd.sh
 RUN chmod +x /usr/local/bin/update_httpd.sh && /usr/local/bin/update_httpd.sh
 WORKDIR /app
 EXPOSE 80 443
