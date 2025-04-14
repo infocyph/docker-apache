@@ -5,7 +5,7 @@ This repository provides a custom Apache Docker image based on the lightweight [
 ## Features
 
 - **Lightweight Base Image:** Built on the `httpd:alpine` image for a small footprint.
-- **Automated Configuration:** Uses `update_httpd.sh` to enable essential modules such as proxy, SSL, rewrite, and more.
+- **Automated Configuration:** Uses `update_httpd.sh` to enable essential modules such as proxy, SSL, rewrite and more.
 - **Flexible Setup:** Listens on ports 80 and 443 and sets the server name using an environment variable.
 
 ## Usage
@@ -15,7 +15,6 @@ This repository provides a custom Apache Docker image based on the lightweight [
    ```bash
    docker build -t docker-apache .
    ```
-
 2. **Run the Container:**
 
    ```bash
