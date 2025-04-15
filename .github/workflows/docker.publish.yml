@@ -16,6 +16,9 @@ jobs:
       attestations: write
       id-token: write
     steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
       - name: Set RELEASE_TAG environment variable
         env:
           GH_TOKEN: ${{ github.token }}
