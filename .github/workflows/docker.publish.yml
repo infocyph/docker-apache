@@ -15,9 +15,10 @@ jobs:
       packages: write
       attestations: write
       id-token: write
-
     steps:
       - name: Set RELEASE_TAG environment variable
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           echo "Fetching latest release tag..."
           RELEASE_TAG=$(gh release list --limit 1 --json tagName -q '.[0].tagName')
@@ -51,7 +52,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GH_TOKEN }}
+          password: ${{ github.token }}
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
@@ -79,7 +80,7 @@ jobs:
           subject-name: docker.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
-          github-token: ${{ secrets.GH_TOKEN }}
+          github-token: ${{ github.token }}
 
       - name: Generate artifact attestation for GHCR
         uses: actions/attest-build-provenance@v2
@@ -87,4 +88,4 @@ jobs:
           subject-name: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
-          github-token: ${{ secrets.GH_TOKEN }}
+          github-token: ${{ github.token }}
