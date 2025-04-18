@@ -5,8 +5,7 @@ This repository provides a custom Apache Docker image based on the lightweight [
 ## Features
 
 - **Lightweight Base Image:** Built on the `httpd:alpine` image for a small footprint.
-- **Automated Configuration:** Uses `update_httpd.sh` to enable essential modules such as proxy, SSL, rewrite and more.
-- **Flexible Setup:** Listens on ports 80 and 443 and sets the server name using an environment variable.
+- **Automated Configuration:** Enable essential modules such as proxy, SSL, rewrite and more.
 
 ## Usage
 
@@ -20,7 +19,10 @@ This repository provides a custom Apache Docker image based on the lightweight [
    ```bash
    docker run -d -p 80:80 -p 443:443 docker-apache
    ```
-
+3. **Set the `TZ` environment variable (for your desired timezone):**
+    ```bash
+    TZ=Your_Desired_Timezone
+    ```
 ## Customization
 
 - **Logging:** The Apache log directory is set to `/var/log/apache2`, which you may mount as a volume if needed.
