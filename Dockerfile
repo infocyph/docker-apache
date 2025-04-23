@@ -19,6 +19,14 @@ RUN chmod +x /usr/local/bin/show-banner /usr/local/bin/chromacat /usr/local/bin/
     echo '#!/bin/sh' > /etc/profile.d/banner-hook.sh && \
     echo '[ -n "$PS1" ] && /usr/local/bin/show-banner "APACHE $APACHE_VERSION"' >> /etc/profile.d/banner-hook.sh && \
     chmod +x /etc/profile.d/banner-hook.sh
+
+RUN echo '#!/bin/sh'                                                   > /etc/profile.d/banner-hook.sh && \
+    echo '[ -n "$PS1" ] || exit'                                        >> /etc/profile.d/banner-hook.sh && \
+    echo "APACHE_VERSION=\$(httpd -v | sed -n 's|^Server version: Apache/\\([0-9.]*\\).*|\\1|p')" \
+                                                                 >> /etc/profile.d/banner-hook.sh && \
+    echo 'exec /usr/local/bin/show-banner "APACHE $APACHE_VERSION"'    >> /etc/profile.d/banner-hook.sh && \
+    chmod +x /etc/profile.d/banner-hook.sh
+
 WORKDIR /app
 EXPOSE 80 443
 CMD ["httpd-foreground"]
