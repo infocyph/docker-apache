@@ -15,17 +15,22 @@ ADD https://raw.githubusercontent.com/infocyph/Scriptomatic/master/bash/banner.s
 ADD https://raw.githubusercontent.com/infocyph/Toolset/main/ChromaCat/chromacat /usr/local/bin/chromacat
 RUN chmod +x /usr/local/bin/show-banner /usr/local/bin/chromacat /usr/local/bin/update_httpd.sh && \
     /usr/local/bin/update_httpd.sh && \
-    APACHE_VERSION=$(httpd -v | sed -n 's|^Server version: Apache/\([0-9\.]*\).*|\1|p') && \
-    echo '#!/bin/sh' > /etc/profile.d/banner-hook.sh && \
-    echo '[ -n "$PS1" ] && /usr/local/bin/show-banner "APACHE $APACHE_VERSION"' >> /etc/profile.d/banner-hook.sh && \
-    chmod +x /etc/profile.d/banner-hook.sh
-
-RUN echo '#!/bin/sh'                                                   > /etc/profile.d/banner-hook.sh && \
-    echo '[ -n "$PS1" ] || exit'                                        >> /etc/profile.d/banner-hook.sh && \
-    echo "APACHE_VERSION=\$(httpd -v | sed -n 's|^Server version: Apache/\\([0-9.]*\\).*|\\1|p')" \
-                                                                 >> /etc/profile.d/banner-hook.sh && \
-    echo 'exec /usr/local/bin/show-banner "APACHE $APACHE_VERSION"'    >> /etc/profile.d/banner-hook.sh && \
-    chmod +x /etc/profile.d/banner-hook.sh
+    mkdir -p /etc/profile.d && \
+    { \
+      echo '#!/bin/sh'; \
+      echo 'if [ -n "$PS1" ] && [ -z "${BANNER_SHOWN-}" ]; then'; \
+      echo '  export BANNER_SHOWN=1'; \
+      echo "  APACHE_VERSION=\$(httpd -v | sed -n 's|^Server version: Apache/\\([0-9.]*\\).*|\\1|p')"; \
+      echo '  show-banner "APACHE $APACHE_VERSION"'; \
+      echo 'fi'; \
+    } > /etc/profile.d/banner-hook.sh && \
+    chmod +x /etc/profile.d/banner-hook.sh && \
+    { \
+      echo 'if [ -n "$PS1" ] && [ -z "${BANNER_SHOWN-}" ]; then'; \
+      echo '  export BANNER_SHOWN=1'; \
+      echo '  show-banner "APACHE $APACHE_VERSION"'; \
+      echo 'fi'; \
+    } >> /root/.bashrc
 
 WORKDIR /app
 EXPOSE 80 443
