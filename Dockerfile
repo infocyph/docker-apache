@@ -16,7 +16,9 @@ ADD https://raw.githubusercontent.com/infocyph/Toolset/main/ChromaCat/chromacat 
 RUN chmod +x /usr/local/bin/show-banner /usr/local/bin/chromacat /usr/local/bin/update_httpd.sh && \
     /usr/local/bin/update_httpd.sh && \
     APACHE_VERSION=$(httpd -v | sed -n 's|^Server version: Apache/\([0-9\.]*\).*|\1|p') && \
-    echo "show-banner \"APACHE $APACHE_VERSION\"" >> /root/.bashrc
+    echo '#!/bin/sh' > /etc/profile.d/banner-hook.sh && \
+    echo '[ -n "$PS1" ] && /usr/local/bin/show-banner "APACHE $APACHE_VERSION"' >> /etc/profile.d/banner-hook.sh && \
+    chmod +x /etc/profile.d/banner-hook.sh
 WORKDIR /app
 EXPOSE 80 443
 CMD ["httpd-foreground"]
