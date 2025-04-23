@@ -10,10 +10,11 @@ RUN apk update && \
     rm -rf /var/cache/apk/* /tmp/* /var/tmp/* \
 ENV LANG=en_US.UTF-8 \
     LC_ALL=en_US.UTF-8
-COPY --chmod=+x scripts/update_httpd.sh /usr/local/bin/update_httpd.sh
-ADD --chmod=+x https://raw.githubusercontent.com/infocyph/Scriptomatic/master/bash/banner.sh /usr/local/bin/show-banner
-ADD --chmod=+x https://raw.githubusercontent.com/infocyph/Toolset/main/ChromaCat/chromacat /usr/local/bin/chromacat
-RUN /usr/local/bin/update_httpd.sh && \
+COPY scripts/update_httpd.sh /usr/local/bin/update_httpd.sh
+ADD https://raw.githubusercontent.com/infocyph/Scriptomatic/master/bash/banner.sh /usr/local/bin/show-banner
+ADD https://raw.githubusercontent.com/infocyph/Toolset/main/ChromaCat/chromacat /usr/local/bin/chromacat
+RUN chmod +x /usr/local/bin/show-banner /usr/local/bin/chromacat /usr/local/bin/update_httpd.sh && \
+    /usr/local/bin/update_httpd.sh && \
     APACHE_VERSION=$(httpd -v | sed -n 's|^Server version: Apache/\([0-9\.]*\).*|\1|p') && \
     echo "show-banner \"APACHE $APACHE_VERSION\"" >> /root/.bashrc
 WORKDIR /app
