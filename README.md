@@ -1,32 +1,78 @@
 # docker-apache
 
-This repository provides a custom Apache Docker image based on the lightweight [httpd:alpine](https://hub.docker.com/_/httpd) image. It includes an automated configuration update script that ensures necessary Apache modules and settings are enabled.
+A custom **Apache HTTP Server** Docker image built on top of the lightweight [`httpd:alpine`](https://hub.docker.com/_/httpd).  
+It ships with a small config updater that enables commonly needed modules (proxy/FCGI, SSL, rewrite, headers, etc.) and applies a few sane defaults.
+
+---
 
 ## Features
 
-- **Lightweight Base Image:** Built on the `httpd:alpine` image for a small footprint.
-- **Automated Configuration:** Enable essential modules such as proxy, SSL, rewrite and more.
+- **Small footprint**: based on `httpd:alpine`
+- **Auto configuration**: enables essential modules and settings on build
+  - `mod_proxy`, `mod_proxy_fcgi`
+  - `mod_rewrite`
+  - `mod_ssl` + `socache_shmcb`
+  - `mod_headers`, `mod_deflate`
+- **Timezone support** via `tzdata` + `TZ` env
+- **Nice interactive banner** when you open a shell inside the container (optional convenience)
 
-## Usage
+---
 
-1. **Build the Image:**
+## Quick Start
 
-   ```bash
-   docker build -t docker-apache .
-   ```
-2. **Run the Container:**
+### Build
 
-   ```bash
-   docker run -d -p 80:80 -p 443:443 docker-apache
-   ```
-3. **Set the `TZ` environment variable (for your desired timezone):**
-    ```bash
-    TZ=Your_Desired_Timezone
-    ```
-## Customization
+```bash
+docker build -t infocyph/docker-apache:latest .
+````
 
-- **Logging:** The Apache log directory is set to `/var/log/apache2`, which you may mount as a volume if needed.
+### Run
+
+```bash
+docker run -d \
+  --name apache \
+  -p 80:80 -p 443:443 \
+  -e TZ=Asia/Dhaka \
+  -e SERVER_NAME=localhost \
+  infocyph/docker-apache:latest
+```
+
+---
+
+## Environment Variables
+
+| Variable         |            Default | Description                                        |
+| ---------------- | -----------------: | -------------------------------------------------- |
+| `TZ`             |          *(empty)* | Container timezone (example: `Asia/Dhaka`)         |
+| `SERVER_NAME`    |        `localhost` | Apache `ServerName` used by the config updater     |
+| `APACHE_LOG_DIR` | `/var/log/apache2` | Log directory path (mount if you want persistence) |
+
+> Note: `SERVER_NAME` is applied by the build-time config updater in the current image design.
+
+---
+
+## Logs (optional)
+
+To persist logs on the host:
+
+```bash
+docker run -d \
+  --name apache \
+  -p 80:80 -p 443:443 \
+  -v "$(pwd)/logs:/var/log/apache2" \
+  infocyph/docker-apache:latest
+```
+
+---
+
+## Validate Inside the Container
+
+```bash
+docker exec -it apache sh -lc 'httpd -v && httpd -M | head'
+```
+
+---
 
 ## License
 
-This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).
+MIT — see [MIT License](https://opensource.org/licenses/MIT).
