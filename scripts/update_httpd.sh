@@ -1,9 +1,8 @@
 #!/bin/sh
-set -e
+set -eu
 
 HTTPD_CONF="/usr/local/apache2/conf/httpd.conf"
 
-# Define the list of configuration lines to check/update.
 lines_to_update="
 LoadModule proxy_module modules/mod_proxy.so
 LoadModule proxy_fcgi_module modules/mod_proxy_fcgi.so
@@ -21,22 +20,37 @@ Listen 443
 IncludeOptional conf/extra/*.conf
 "
 
-# Function to process one configuration line.
-process_line() {
+escape_sed_re() {
+    # Escape sed BRE meta chars + delimiter-sensitive chars.
+    # Covers: . [ ] * ^ $ \ ( ) { } + ? | and also / &
+    printf '%s' "$1" | sed 's/[.[\*^$\\(){}+?|]/\\&/g; s/[\/&]/\\&/g'
+}
+
+ensure_line() {
     line="$1"
-    escaped_line=$(printf '%s\n' "$line" | sed 's/[\/&]/\\&/g')
-    sed -i "s/^#\s*\(${escaped_line}\)/\1/" "$HTTPD_CONF"
-    if ! grep -Fq "$line" "$HTTPD_CONF"; then
-        echo "$line" >> "$HTTPD_CONF"
+
+    # If line exists commented or uncommented, normalize it to exactly the active form.
+    re="$(escape_sed_re "$line")"
+
+    if grep -Fqx "$line" "$HTTPD_CONF"; then
+        return 0
     fi
+
+    # Replace a commented match (allow leading whitespace + # + whitespace)
+    if grep -Eq "^[[:space:]]*#[[:space:]]*${re}[[:space:]]*$" "$HTTPD_CONF"; then
+        # Use a regex that matches the whole line and rewrites to the exact desired line.
+        sed -i "s|^[[:space:]]*#[[:space:]]*${re}[[:space:]]*$|$line|g" "$HTTPD_CONF"
+        return 0
+    fi
+
+    # Otherwise append
+    printf '%s\n' "$line" >> "$HTTPD_CONF"
 }
 
 # Process each desired configuration line.
-echo "$lines_to_update" | while IFS= read -r config_line; do
+printf '%s\n' "$lines_to_update" | while IFS= read -r config_line; do
     [ -z "$config_line" ] && continue
-    process_line "$config_line"
+    ensure_line "$config_line"
 done
 
 echo "Apache configuration updated successfully."
-
-rm -f -- "$0"
