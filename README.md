@@ -1,5 +1,11 @@
 # docker-apache
 
+[![Docker Publish](https://github.com/infocyph/docker-apache/actions/workflows/docker.publish.yml/badge.svg)](https://github.com/infocyph/docker-apache/actions/workflows/docker.publish.yml)
+![Docker Pulls](https://img.shields.io/docker/pulls/infocyph/apache)
+![Docker Image Size](https://img.shields.io/docker/image-size/infocyph/apache)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Base: Alpine](https://img.shields.io/badge/Base-Alpine-brightgreen.svg)](https://alpinelinux.org)
+
 A custom **Apache HTTP Server** Docker image built on top of the lightweight [`httpd:alpine`](https://hub.docker.com/_/httpd).  
 It ships with a small config updater that enables commonly needed modules (proxy/FCGI, SSL, rewrite, headers, etc.) and applies a few sane defaults.
 
