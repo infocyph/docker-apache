@@ -27,7 +27,7 @@ RUN set -eux; \
     chmod +x /usr/local/bin/update_httpd.sh; \
     /usr/local/bin/update_httpd.sh; \
     rm -f /usr/local/bin/update_httpd.sh; \
-    mkdir -p /etc/profile.d; \
+    mkdir -p /etc/profile.d /usr/local/apache2/conf/vhosts; \
     { \
       echo '#!/bin/sh'; \
       echo 'if [ -n "$PS1" ] && [ -z "${BANNER_SHOWN-}" ]; then'; \

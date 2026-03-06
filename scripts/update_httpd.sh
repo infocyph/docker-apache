@@ -3,6 +3,10 @@ set -eu
 
 HTTPD_CONF="/usr/local/apache2/conf/httpd.conf"
 
+sed -i '/^[[:space:]]*IncludeOptional[[:space:]]\+conf\/extra\/\*\.conf[[:space:]]*$/d' "$HTTPD_CONF"
+sed -i '/^[[:space:]]*IncludeOptional[[:space:]]\+conf\/extra\/httpd-dav\.conf[[:space:]]*$/d' "$HTTPD_CONF"
+sed -i '/^[[:space:]]*Include[[:space:]]\+conf\/extra\/httpd-dav\.conf[[:space:]]*$/d' "$HTTPD_CONF"
+
 lines_to_update="
 LoadModule proxy_module modules/mod_proxy.so
 LoadModule proxy_fcgi_module modules/mod_proxy_fcgi.so
@@ -12,12 +16,13 @@ LoadModule ssl_module modules/mod_ssl.so
 LoadModule socache_shmcb_module modules/mod_socache_shmcb.so
 LoadModule headers_module modules/mod_headers.so
 LoadModule deflate_module modules/mod_deflate.so
-ServerName ${SERVER_NAME}
+LoadModule http2_module modules/mod_http2.so
 SSLSessionCache shmcb:/usr/local/apache2/logs/ssl_scache(512000)
+ServerName ${SERVER_NAME:-LocalDevStack}
 SSLSessionCacheTimeout 86400
 Listen 80
 Listen 443
-IncludeOptional conf/extra/*.conf
+IncludeOptional conf/vhosts/*.conf
 "
 
 escape_sed_re() {
