@@ -4,6 +4,7 @@ set -eu
 HTTPD_CONF="/usr/local/apache2/conf/httpd.conf"
 
 sed -i '/^[[:space:]]*IncludeOptional[[:space:]]\+conf\/extra\/\*\.conf[[:space:]]*$/d' "$HTTPD_CONF"
+sed -i '/^[[:space:]]*Include[[:space:]]\+conf\/extra\/\*\.conf[[:space:]]*$/d' "$HTTPD_CONF"
 sed -i '/^[[:space:]]*IncludeOptional[[:space:]]\+conf\/extra\/httpd-dav\.conf[[:space:]]*$/d' "$HTTPD_CONF"
 sed -i '/^[[:space:]]*Include[[:space:]]\+conf\/extra\/httpd-dav\.conf[[:space:]]*$/d' "$HTTPD_CONF"
 
@@ -18,7 +19,7 @@ LoadModule headers_module modules/mod_headers.so
 LoadModule deflate_module modules/mod_deflate.so
 LoadModule http2_module modules/mod_http2.so
 SSLSessionCache shmcb:/usr/local/apache2/logs/ssl_scache(512000)
-ServerName ${SERVER_NAME:-LocalDevStack}
+ServerName ${SERVER_NAME:-localhost}
 SSLSessionCacheTimeout 86400
 Listen 80
 Listen 443
@@ -59,3 +60,5 @@ printf '%s\n' "$lines_to_update" | while IFS= read -r config_line; do
 done
 
 echo "Apache configuration updated successfully."
+
+rm -f -- "$0"
