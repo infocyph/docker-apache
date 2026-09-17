@@ -56,9 +56,9 @@ grep -Fq 'infocyph/apache:latest' README.md
 if grep -Fq 'infocyph/docker-apache:' README.md; then
   fail 'README must use the published infocyph/apache image name'
 fi
-grep -Fq '`SERVER_NAME`' README.md
-grep -Fq '`APACHE_LOG_DIR`' README.md
-grep -Fq '`apache2-utils`' README.md
+grep -Fq "\`SERVER_NAME\`" README.md
+grep -Fq "\`APACHE_LOG_DIR\`" README.md
+grep -Fq "\`apache2-utils\`" README.md
 
 bash tests/release-contract.sh
 
