@@ -1,64 +1,87 @@
 #!/bin/sh
 set -eu
 
-HTTPD_CONF="/usr/local/apache2/conf/httpd.conf"
+HTTPD_ROOT="/usr/local/apache2"
+HTTPD_CONF="$HTTPD_ROOT/conf/httpd.conf"
 
-sed -i '/^[[:space:]]*IncludeOptional[[:space:]]\+conf\/extra\/\*\.conf[[:space:]]*$/d' "$HTTPD_CONF"
-sed -i '/^[[:space:]]*Include[[:space:]]\+conf\/extra\/\*\.conf[[:space:]]*$/d' "$HTTPD_CONF"
-sed -i '/^[[:space:]]*IncludeOptional[[:space:]]\+conf\/extra\/httpd-dav\.conf[[:space:]]*$/d' "$HTTPD_CONF"
-sed -i '/^[[:space:]]*Include[[:space:]]\+conf\/extra\/httpd-dav\.conf[[:space:]]*$/d' "$HTTPD_CONF"
+fail() {
+    printf '[update-httpd] %s\n' "$*" >&2
+    exit 1
+}
 
-lines_to_update="
-LoadModule proxy_module modules/mod_proxy.so
-LoadModule proxy_fcgi_module modules/mod_proxy_fcgi.so
-LoadModule setenvif_module modules/mod_setenvif.so
-LoadModule rewrite_module modules/mod_rewrite.so
-LoadModule ssl_module modules/mod_ssl.so
-LoadModule socache_shmcb_module modules/mod_socache_shmcb.so
-LoadModule headers_module modules/mod_headers.so
-LoadModule deflate_module modules/mod_deflate.so
-LoadModule http2_module modules/mod_http2.so
+[ -r "$HTTPD_CONF" ] || fail "Apache configuration is not readable: $HTTPD_CONF"
+
+ensure_line() {
+    wanted="$1"
+    tmp="$(mktemp)"
+
+    awk -v wanted="$wanted" '
+        BEGIN { found = 0 }
+        {
+            candidate = $0
+            sub(/^[[:space:]]*/, "", candidate)
+            if (substr(candidate, 1, 1) == "#") {
+                sub(/^#[[:space:]]*/, "", candidate)
+            }
+            sub(/[[:space:]]*$/, "", candidate)
+
+            if (candidate == wanted) {
+                if (!found) {
+                    print wanted
+                    found = 1
+                }
+                next
+            }
+
+            print
+        }
+        END {
+            if (!found) {
+                print wanted
+            }
+        }
+    ' "$HTTPD_CONF" > "$tmp" || {
+        rm -f "$tmp"
+        fail "Unable to update Apache configuration"
+    }
+
+    cat "$tmp" > "$HTTPD_CONF"
+    rm -f "$tmp"
+}
+
+while IFS='|' read -r module path; do
+    [ -n "$module" ] || continue
+    [ -f "$HTTPD_ROOT/$path" ] || fail "Required Apache module file is missing: $path"
+    ensure_line "LoadModule $module $path"
+done <<'EOF'
+proxy_module|modules/mod_proxy.so
+proxy_fcgi_module|modules/mod_proxy_fcgi.so
+setenvif_module|modules/mod_setenvif.so
+rewrite_module|modules/mod_rewrite.so
+ssl_module|modules/mod_ssl.so
+socache_shmcb_module|modules/mod_socache_shmcb.so
+headers_module|modules/mod_headers.so
+deflate_module|modules/mod_deflate.so
+http2_module|modules/mod_http2.so
+EOF
+
+while IFS= read -r directive; do
+    [ -n "$directive" ] || continue
+    ensure_line "$directive"
+done <<'EOF'
+ServerName ${SERVER_NAME}
+ServerTokens Prod
+ServerSignature Off
+TraceEnable Off
+ProxyRequests Off
 SSLSessionCache shmcb:/usr/local/apache2/logs/ssl_scache(512000)
-ServerName ${SERVER_NAME:-localhost}
 SSLSessionCacheTimeout 86400
 Listen 80
 Listen 443
 IncludeOptional conf/vhosts/*.conf
-"
+EOF
 
-escape_sed_re() {
-    # Escape sed BRE meta chars + delimiter-sensitive chars.
-    # Covers: . [ ] * ^ $ \ ( ) { } + ? | and also / &
-    printf '%s' "$1" | sed 's/[.[\*^$\\(){}+?|]/\\&/g; s/[\/&]/\\&/g'
-}
-
-ensure_line() {
-    line="$1"
-
-    # If line exists commented or uncommented, normalize it to exactly the active form.
-    re="$(escape_sed_re "$line")"
-
-    if grep -Fqx "$line" "$HTTPD_CONF"; then
-        return 0
-    fi
-
-    # Replace a commented match (allow leading whitespace + # + whitespace)
-    if grep -Eq "^[[:space:]]*#[[:space:]]*${re}[[:space:]]*$" "$HTTPD_CONF"; then
-        # Use a regex that matches the whole line and rewrites to the exact desired line.
-        sed -i "s|^[[:space:]]*#[[:space:]]*${re}[[:space:]]*$|$line|g" "$HTTPD_CONF"
-        return 0
-    fi
-
-    # Otherwise append
-    printf '%s\n' "$line" >> "$HTTPD_CONF"
-}
-
-# Process each desired configuration line.
-printf '%s\n' "$lines_to_update" | while IFS= read -r config_line; do
-    [ -z "$config_line" ] && continue
-    ensure_line "$config_line"
-done
-
-echo "Apache configuration updated successfully."
-
-rm -f -- "$0"
+if ! httpd -t >/dev/null 2>&1; then
+    httpd -t >&2 || true
+    fail "Apache configuration validation failed"
+fi
