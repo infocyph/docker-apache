@@ -37,12 +37,14 @@ COPY scripts/entrypoint.sh /usr/local/bin/entrypoint
 COPY scripts/healthcheck.sh /usr/local/bin/healthcheck
 
 RUN set -eux; \
-    curl -fsSL --retry 3 --retry-delay 1 --connect-timeout 10 \
+    curl -fsSL --retry 3 --retry-all-errors --retry-delay 1 \
+      --connect-timeout 10 --max-time 120 \
       "https://raw.githubusercontent.com/infocyph/Scriptomatic/main/bash/banner.sh" \
       -o /usr/local/bin/show-banner; \
     test -s /usr/local/bin/show-banner; \
     bash -n /usr/local/bin/show-banner; \
-    curl -fsSL --retry 3 --retry-delay 1 --connect-timeout 10 \
+    curl -fsSL --retry 3 --retry-all-errors --retry-delay 1 \
+      --connect-timeout 10 --max-time 120 \
       "https://github.com/infocyph/Toolset/releases/latest/download/install.sh" \
       -o /tmp/toolset-install.sh; \
     test -s /tmp/toolset-install.sh; \
