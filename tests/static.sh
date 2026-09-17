@@ -39,4 +39,12 @@ grep -Fq '127.0.0.1' scripts/healthcheck.sh
 grep -Fq -- '--connect-timeout' scripts/healthcheck.sh
 grep -Fq -- '--max-time' scripts/healthcheck.sh
 
+grep -Fq 'infocyph/apache:latest' README.md
+! grep -Fq 'infocyph/docker-apache:' README.md
+grep -Fq '`SERVER_NAME`' README.md
+grep -Fq '`APACHE_LOG_DIR`' README.md
+grep -Fq '`apache2-utils`' README.md
+
+bash tests/release-contract.sh
+
 echo 'Static checks passed.'
