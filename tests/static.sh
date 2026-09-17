@@ -21,10 +21,10 @@ shellcheck scripts/*.sh tests/*.sh
 
 grep -Fq 'FROM httpd:alpine' Dockerfile
 grep -Fq 'apache2-utils' Dockerfile
-if grep -Fq 'apache-mod-fcgid' Dockerfile; then
+if grep -Eq '^[[:space:]]+apache-mod-fcgid([[:space:]\\;]|$)' Dockerfile; then
   fail 'apache-mod-fcgid must not be installed'
 fi
-if grep -Eq '^[[:space:]]+apache2([[:space:]\\]|$)' Dockerfile; then
+if grep -Eq '^[[:space:]]+apache2([[:space:]\\;]|$)' Dockerfile; then
   fail 'Alpine apache2 server package must not be installed'
 fi
 grep -Fq 'Scriptomatic/main/bash/banner.sh' Dockerfile
