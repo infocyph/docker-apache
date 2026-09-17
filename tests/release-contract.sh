@@ -20,7 +20,14 @@ for contract in \
 done
 
 grep -Fq "cron: '0 0 * * 0'" "$workflow"
-! grep -Fq 'actions/checkout@v4' "$workflow"
-! grep -Fq 'docker/login-action@v3' "$workflow"
+
+if grep -Fq 'actions/checkout@v4' "$workflow"; then
+  echo 'Legacy checkout action detected.' >&2
+  exit 1
+fi
+if grep -Fq 'docker/login-action@v3' "$workflow"; then
+  echo 'Legacy Docker login action detected.' >&2
+  exit 1
+fi
 
 echo 'Release workflow contracts passed.'
