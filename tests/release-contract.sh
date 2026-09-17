@@ -13,7 +13,7 @@ for contract in \
   'actions/attest@v4' \
   'release_tag:' \
   'MANUAL_RELEASE_TAG' \
-  'releases/tags/${MANUAL_RELEASE_TAG}' \
+  "releases/tags/\${MANUAL_RELEASE_TAG}" \
   'PUBLISH_RELEASE_TAG' \
   'Enforce immutable release tags' \
   'linux/amd64,linux/arm64' \
