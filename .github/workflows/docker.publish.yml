@@ -6,6 +6,11 @@ on:
   schedule:
     - cron: '0 0 * * 0'
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Published release tag to recover; leave empty to refresh latest only'
+        required: false
+        type: string
 
 concurrency:
   group: docker-publish
@@ -36,6 +41,7 @@ jobs:
           EVENT_RELEASE_TAG: ${{ github.event.release.tag_name }}
           EVENT_RELEASE_DRAFT: ${{ github.event.release.draft }}
           EVENT_RELEASE_PRERELEASE: ${{ github.event.release.prerelease }}
+          MANUAL_RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
 
@@ -45,6 +51,23 @@ jobs:
               exit 1
             fi
             RELEASE_TAG="$EVENT_RELEASE_TAG"
+            PUBLISH_RELEASE_TAG=true
+            VERIFY_TAG="$RELEASE_TAG"
+          elif [[ "$EVENT_NAME" == workflow_dispatch && -n "$MANUAL_RELEASE_TAG" ]]; then
+            release_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${MANUAL_RELEASE_TAG}")"
+            RELEASE_TAG="$(jq -r '.tag_name // empty' <<<"$release_json")"
+            release_draft="$(jq -r '.draft' <<<"$release_json")"
+            release_prerelease="$(jq -r '.prerelease' <<<"$release_json")"
+
+            [[ "$RELEASE_TAG" == "$MANUAL_RELEASE_TAG" ]] || {
+              echo "Published release tag could not be resolved: $MANUAL_RELEASE_TAG" >&2
+              exit 1
+            }
+            [[ "$release_draft" == false && "$release_prerelease" == false ]] || {
+              echo "Manual recovery refuses draft/prerelease release: $MANUAL_RELEASE_TAG" >&2
+              exit 1
+            }
+
             PUBLISH_RELEASE_TAG=true
             VERIFY_TAG="$RELEASE_TAG"
           else
@@ -70,6 +93,14 @@ jobs:
             echo "PUBLISH_RELEASE_TAG=$PUBLISH_RELEASE_TAG"
             echo "VERIFY_TAG=$VERIFY_TAG"
           } >> "$GITHUB_ENV"
+
+          {
+            echo '## Publish resolution'
+            echo
+            echo "- Event: \`$EVENT_NAME\`"
+            echo "- Apache source release: \`$RELEASE_TAG\`"
+            echo "- Publish immutable release tag: \`$PUBLISH_RELEASE_TAG\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Check out exact release source
         uses: actions/checkout@v7
