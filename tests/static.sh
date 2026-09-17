@@ -30,6 +30,11 @@ if grep -Eq '^[[:space:]]+apache2([[:space:]\\;]|$)' Dockerfile; then
 fi
 grep -Fq 'Scriptomatic/main/bash/banner.sh' Dockerfile
 grep -Fq 'Toolset/releases/latest/download/install.sh' Dockerfile
+helper_downloads="$(grep -c -- '--connect-timeout 10 --max-time 120' Dockerfile)"
+if [[ "$helper_downloads" -ne 2 ]]; then
+  fail 'Both helper downloads must use bounded connect and total timeouts'
+fi
+grep -Fq -- '--retry-all-errors' Dockerfile
 
 grep -Fq "ServerName \${SERVER_NAME}" scripts/update_httpd.sh
 for directive in \
