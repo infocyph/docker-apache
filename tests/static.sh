@@ -20,6 +20,7 @@ done
 shellcheck scripts/*.sh tests/*.sh
 
 grep -Fq 'FROM httpd:alpine' Dockerfile
+grep -Fq 'apk upgrade --no-cache' Dockerfile
 grep -Fq 'apache2-utils' Dockerfile
 if grep -Eq '^[[:space:]]+apache-mod-fcgid([[:space:]\\;]|$)' Dockerfile; then
   fail 'apache-mod-fcgid must not be installed'

@@ -14,6 +14,7 @@ ENV APACHE_LOG_DIR=/var/log/apache2 \
     TZ=${TZ}
 
 RUN set -eux; \
+    apk upgrade --no-cache; \
     apk add --no-cache \
         apache2-utils \
         tzdata \
