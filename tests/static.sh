@@ -17,7 +17,7 @@ shellcheck scripts/*.sh tests/*.sh
 grep -Fq 'FROM httpd:alpine' Dockerfile
 grep -Fq 'apache2-utils' Dockerfile
 ! grep -Fq 'apache-mod-fcgid' Dockerfile
-! grep -Eq '^[[:space:]]*apache2([[:space:]\\]|$)' Dockerfile
+! grep -Eq '^[[:space:]]+apache2([[:space:]\\]|$)' Dockerfile
 grep -Fq 'Scriptomatic/main/bash/banner.sh' Dockerfile
 grep -Fq 'Toolset/releases/latest/download/install.sh' Dockerfile
 
@@ -31,9 +31,12 @@ for directive in \
   grep -Fq "$directive" scripts/update_httpd.sh
 done
 
-if grep -Eq '^[[:space:]]*(Include|IncludeOptional)[[:space:]]+conf/extra/\\\\\*\\.conf' scripts/update_httpd.sh; then
-  echo 'update_httpd.sh must not remove broad upstream conf/extra includes' >&2
-  exit 1
-fi
+! grep -Fq 'conf/extra' scripts/update_httpd.sh
+! grep -Fq 'rm -f -- "$0"' scripts/update_httpd.sh
+
+grep -Fq 'exec "$@"' scripts/entrypoint.sh
+grep -Fq '127.0.0.1' scripts/healthcheck.sh
+grep -Fq -- '--connect-timeout' scripts/healthcheck.sh
+grep -Fq -- '--max-time' scripts/healthcheck.sh
 
 echo 'Static checks passed.'

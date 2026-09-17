@@ -2,6 +2,9 @@
 set -euo pipefail
 
 image="${1:-infocyph/apache:ci}"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+tcp_vhost="$repo_root/tests/fixtures/vhosts/php-fpm.conf"
+socket_vhost="$repo_root/tests/fixtures/vhosts/php-fpm-socket.conf"
 
 docker run --rm "$image" sh -ec '
   httpd -t
@@ -36,6 +39,12 @@ docker run --rm "$image" sh -ec '
   test "$once" = "$twice"
 '
 
+for vhost in "$tcp_vhost" "$socket_vhost"; do
+  docker run --rm --entrypoint sh \
+    -v "$vhost:/usr/local/apache2/conf/vhosts/php.conf:ro" \
+    "$image" -ec 'httpd -t'
+done
+
 docker run --rm \
   -e SERVER_NAME=runtime.apache.test \
   -e APACHE_LOG_DIR=/tmp/apache-runtime-logs \
@@ -46,5 +55,8 @@ docker run --rm \
     test -w "$APACHE_LOG_DIR"
     httpd -t
   '
+
+docker run --rm -e TZ=Invalid/Zone "$image" sh -ec 'httpd -t'
+docker run --rm "$image" sh -ec 'test "$(printf ok)" = ok'
 
 echo 'Apache configuration contracts passed.'
