@@ -34,10 +34,10 @@ grep -Fq "cron: '0 0 * * 0'" "$workflow"
 grep -Fq 'types: [published]' "$workflow"
 
 for pinned_contract in \
-  'HTTPD_ALPINE_REF=httpd:alpine@${{ env.HTTPD_ALPINE_DIGEST }}' \
-  'SCRIPTOMATIC_REF=${{ env.SCRIPTOMATIC_MAIN_SHA }}' \
-  'TOOLSET_RELEASE=${{ env.TOOLSET_RELEASE }}' \
-  'TOOLSET_INSTALLER_SHA256=${{ env.TOOLSET_INSTALLER_SHA256 }}'; do
+  "HTTPD_ALPINE_REF=httpd:alpine@\${{ env.HTTPD_ALPINE_DIGEST }}" \
+  "SCRIPTOMATIC_REF=\${{ env.SCRIPTOMATIC_MAIN_SHA }}" \
+  "TOOLSET_RELEASE=\${{ env.TOOLSET_RELEASE }}" \
+  "TOOLSET_INSTALLER_SHA256=\${{ env.TOOLSET_INSTALLER_SHA256 }}"; do
   pinned_builds="$(grep -cF "$pinned_contract" "$workflow")"
   if [[ "$pinned_builds" -ne 3 ]]; then
     echo "Expected all three publish builds to use pinned input: $pinned_contract; found $pinned_builds." >&2
