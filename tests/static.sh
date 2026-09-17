@@ -20,7 +20,7 @@ done
 shellcheck scripts/*.sh tests/*.sh
 
 grep -Fq 'ARG HTTPD_ALPINE_REF=httpd:alpine' Dockerfile
-grep -Fq 'FROM ${HTTPD_ALPINE_REF}' Dockerfile
+grep -Fq "FROM \${HTTPD_ALPINE_REF}" Dockerfile
 grep -Fq 'ARG SCRIPTOMATIC_REF=main' Dockerfile
 grep -Fq 'ARG TOOLSET_RELEASE=latest' Dockerfile
 grep -Fq 'apk upgrade --no-cache' Dockerfile
@@ -31,10 +31,10 @@ fi
 if grep -Eq '^[[:space:]]+apache2([[:space:]\\;]|$)' Dockerfile; then
   fail 'Alpine apache2 server package must not be installed'
 fi
-grep -Fq 'Scriptomatic/${SCRIPTOMATIC_REF}/bash/banner.sh' Dockerfile
+grep -Fq "Scriptomatic/\${SCRIPTOMATIC_REF}/bash/banner.sh" Dockerfile
 grep -Fq 'Toolset/releases/latest/download/install.sh' Dockerfile
-grep -Fq 'Toolset/releases/download/${TOOLSET_RELEASE}/install.sh' Dockerfile
-grep -Fq -- '--release "$TOOLSET_RELEASE"' Dockerfile
+grep -Fq "Toolset/releases/download/\${TOOLSET_RELEASE}/install.sh" Dockerfile
+grep -Fq -- "--release \"\$TOOLSET_RELEASE\"" Dockerfile
 grep -Fq -- '--latest --prefix /usr/local/bin chromacat' Dockerfile
 helper_downloads="$(grep -c -- '--connect-timeout 10 --max-time 120' Dockerfile)"
 if [[ "$helper_downloads" -ne 2 ]]; then
