@@ -9,6 +9,7 @@ LABEL org.opencontainers.image.authors="infocyph,abmmhasan"
 ARG TZ=Asia/Dhaka
 ARG SCRIPTOMATIC_REF=main
 ARG TOOLSET_RELEASE=latest
+ARG TOOLSET_INSTALLER_SHA256=
 
 ENV APACHE_LOG_DIR=/var/log/apache2 \
     SERVER_NAME=localhost \
@@ -56,6 +57,9 @@ RUN set -eux; \
       "$toolset_installer_url" \
       -o /tmp/toolset-install.sh; \
     test -s /tmp/toolset-install.sh; \
+    if [ -n "$TOOLSET_INSTALLER_SHA256" ]; then \
+      printf '%s  %s\n' "$TOOLSET_INSTALLER_SHA256" /tmp/toolset-install.sh | sha256sum -c -; \
+    fi; \
     bash -n /tmp/toolset-install.sh; \
     if [ "$TOOLSET_RELEASE" = latest ]; then \
       bash /tmp/toolset-install.sh --latest --prefix /usr/local/bin chromacat; \
