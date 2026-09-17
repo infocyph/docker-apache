@@ -126,9 +126,13 @@ jobs:
           set -euo pipefail
 
           retry() {
-            local attempt=1
+            local attempt=1 max_attempts=5
             until "$@"; do
-              (( attempt >= 5 )) && return 1
+              if (( attempt >= max_attempts )); then
+                echo "Command failed after ${max_attempts} attempts: $*" >&2
+                return 1
+              fi
+              echo "Retrying failed command in $((attempt * 2)) seconds: $*" >&2
               sleep "$((attempt * 2))"
               attempt=$((attempt + 1))
             done
@@ -136,39 +140,75 @@ jobs:
 
           get_httpd_digest() {
             local output digest
-            output="$(docker buildx imagetools inspect httpd:alpine 2>&1)" || { echo "$output" >&2; return 1; }
-            digest="$(printf '%s\n' "$output" | awk '$1 == "Digest:" {print $2; exit}')"
-            [[ -n "$digest" ]] || return 1
+            output="$(docker buildx imagetools inspect httpd:alpine 2>&1)" || {
+              echo "$output" >&2
+              return 1
+            }
+            digest="$(awk '$1 == "Digest:" {print $2; exit}' <<<"$output")"
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+              echo 'Could not resolve a valid httpd:alpine digest.' >&2
+              return 1
+            }
             printf '%s\n' "$digest"
           }
 
           get_scriptomatic_sha() {
-            git ls-remote https://github.com/infocyph/Scriptomatic.git refs/heads/main | awk 'NF {print $1; exit}'
+            local output sha
+            output="$(git ls-remote https://github.com/infocyph/Scriptomatic.git refs/heads/main 2>&1)" || {
+              echo "$output" >&2
+              return 1
+            }
+            sha="$(awk 'NF {print $1; exit}' <<<"$output")"
+            [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || {
+              echo 'Could not resolve a valid Scriptomatic main revision.' >&2
+              return 1
+            }
+            printf '%s\n' "$sha"
           }
 
           get_toolset_release() {
-            gh api repos/infocyph/Toolset/releases/latest --jq '.tag_name // empty'
+            local tag
+            tag="$(gh api repos/infocyph/Toolset/releases/latest --jq '.tag_name // empty')" || return 1
+            [[ "$tag" =~ ^v?[0-9]+\.[0-9]+(\.[0-9]+)?(-rc\.[0-9]+)?$ ]] || {
+              echo "Could not resolve a valid latest Toolset release: $tag" >&2
+              return 1
+            }
+            printf '%s\n' "$tag"
           }
 
           get_installer_sha() {
-            local file
+            local release="$1" file checksum_output sha
             file="$(mktemp)"
-            curl --fail --silent --show-error --location \
+            if ! curl --fail --silent --show-error --location \
               --retry 5 --retry-all-errors --retry-delay 2 \
               --connect-timeout 15 --max-time 120 \
-              https://github.com/infocyph/Toolset/releases/latest/download/install.sh \
-              -o "$file"
-            test -s "$file"
-            sha256sum "$file" | awk '{print $1}'
+              "https://github.com/infocyph/Toolset/releases/download/${release}/install.sh" \
+              -o "$file"; then
+              rm -f "$file"
+              return 1
+            fi
+            if [[ ! -s "$file" ]]; then
+              echo "Toolset installer is empty for release $release." >&2
+              rm -f "$file"
+              return 1
+            fi
+            checksum_output="$(sha256sum "$file")" || {
+              rm -f "$file"
+              return 1
+            }
             rm -f "$file"
+            sha="${checksum_output%% *}"
+            [[ "$sha" =~ ^[0-9a-f]{64}$ ]] || {
+              echo "Could not calculate Toolset installer checksum for $release." >&2
+              return 1
+            }
+            printf '%s\n' "$sha"
           }
 
           HTTPD_ALPINE_DIGEST="$(retry get_httpd_digest)"
           SCRIPTOMATIC_MAIN_SHA="$(retry get_scriptomatic_sha)"
           TOOLSET_RELEASE="$(retry get_toolset_release)"
-          TOOLSET_INSTALLER_SHA256="$(retry get_installer_sha)"
-
-          [[ -n "$HTTPD_ALPINE_DIGEST" && -n "$SCRIPTOMATIC_MAIN_SHA" && -n "$TOOLSET_RELEASE" && -n "$TOOLSET_INSTALLER_SHA256" ]]
+          TOOLSET_INSTALLER_SHA256="$(retry get_installer_sha "$TOOLSET_RELEASE")"
 
           {
             echo "HTTPD_ALPINE_DIGEST=$HTTPD_ALPINE_DIGEST"
@@ -176,6 +216,15 @@ jobs:
             echo "TOOLSET_RELEASE=$TOOLSET_RELEASE"
             echo "TOOLSET_INSTALLER_SHA256=$TOOLSET_INSTALLER_SHA256"
           } >> "$GITHUB_ENV"
+
+          {
+            echo '## Upstream snapshot'
+            echo
+            echo "- httpd:alpine: \`$HTTPD_ALPINE_DIGEST\`"
+            echo "- Scriptomatic main: \`$SCRIPTOMATIC_MAIN_SHA\`"
+            echo "- Toolset release: \`$TOOLSET_RELEASE\`"
+            echo "- Toolset installer SHA-256: \`$TOOLSET_INSTALLER_SHA256\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build fresh amd64 release candidate
         uses: docker/build-push-action@v7
@@ -187,6 +236,11 @@ jobs:
           no-cache: true
           push: false
           tags: infocyph/apache:publish-candidate
+          build-args: |
+            HTTPD_ALPINE_REF=httpd:alpine@${{ env.HTTPD_ALPINE_DIGEST }}
+            SCRIPTOMATIC_REF=${{ env.SCRIPTOMATIC_MAIN_SHA }}
+            TOOLSET_RELEASE=${{ env.TOOLSET_RELEASE }}
+            TOOLSET_INSTALLER_SHA256=${{ env.TOOLSET_INSTALLER_SHA256 }}
           cache-to: type=gha,scope=apache-publish-amd64,mode=max
 
       - name: Record candidate runtime resolution
@@ -229,6 +283,11 @@ jobs:
           no-cache: true
           push: false
           tags: infocyph/apache:publish-candidate-arm64
+          build-args: |
+            HTTPD_ALPINE_REF=httpd:alpine@${{ env.HTTPD_ALPINE_DIGEST }}
+            SCRIPTOMATIC_REF=${{ env.SCRIPTOMATIC_MAIN_SHA }}
+            TOOLSET_RELEASE=${{ env.TOOLSET_RELEASE }}
+            TOOLSET_INSTALLER_SHA256=${{ env.TOOLSET_INSTALLER_SHA256 }}
           cache-to: type=gha,scope=apache-publish-arm64,mode=max
 
       - name: Final arm64 release-candidate gate
@@ -242,29 +301,6 @@ jobs:
             command -v htpasswd >/dev/null
             chromacat --version
           '
-
-      - name: Revalidate rolling upstreams before publish
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-
-          current_httpd="$(docker buildx imagetools inspect httpd:alpine | awk '$1 == "Digest:" {print $2; exit}')"
-          current_scriptomatic="$(git ls-remote https://github.com/infocyph/Scriptomatic.git refs/heads/main | awk 'NF {print $1; exit}')"
-          current_toolset="$(gh api repos/infocyph/Toolset/releases/latest --jq '.tag_name // empty')"
-          file="$(mktemp)"
-          trap 'rm -f "$file"' EXIT
-          curl --fail --silent --show-error --location \
-            --retry 5 --retry-all-errors --retry-delay 2 \
-            --connect-timeout 15 --max-time 120 \
-            https://github.com/infocyph/Toolset/releases/latest/download/install.sh \
-            -o "$file"
-          current_installer="$(sha256sum "$file" | awk '{print $1}')"
-
-          test "$current_httpd" = "$HTTPD_ALPINE_DIGEST"
-          test "$current_scriptomatic" = "$SCRIPTOMATIC_MAIN_SHA"
-          test "$current_toolset" = "$TOOLSET_RELEASE"
-          test "$current_installer" = "$TOOLSET_INSTALLER_SHA256"
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
@@ -331,6 +367,11 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            HTTPD_ALPINE_REF=httpd:alpine@${{ env.HTTPD_ALPINE_DIGEST }}
+            SCRIPTOMATIC_REF=${{ env.SCRIPTOMATIC_MAIN_SHA }}
+            TOOLSET_RELEASE=${{ env.TOOLSET_RELEASE }}
+            TOOLSET_INSTALLER_SHA256=${{ env.TOOLSET_INSTALLER_SHA256 }}
           cache-from: |
             type=gha,scope=apache-publish-amd64
             type=gha,scope=apache-publish-arm64
@@ -362,8 +403,8 @@ jobs:
             local ref="$1" output digest
             for _ in $(seq 1 12); do
               output="$(docker buildx imagetools inspect "$ref" 2>&1 || true)"
-              digest="$(printf '%s\n' "$output" | awk '/^Digest:/ {print $2; exit}')"
-              if [[ -n "$digest" ]]; then
+              digest="$(awk '/^Digest:/ {print $2; exit}' <<<"$output")"
+              if [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
                 printf '%s\n' "$digest"
                 return 0
               fi

@@ -1,4 +1,5 @@
-FROM httpd:alpine
+ARG HTTPD_ALPINE_REF=httpd:alpine
+FROM ${HTTPD_ALPINE_REF}
 
 LABEL org.opencontainers.image.source="https://github.com/infocyph/docker-apache"
 LABEL org.opencontainers.image.description="Hardened LocalDevStack Apache backend with PHP-FPM, TLS and HTTP/2 support"
@@ -6,6 +7,9 @@ LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.authors="infocyph,abmmhasan"
 
 ARG TZ=Asia/Dhaka
+ARG SCRIPTOMATIC_REF=main
+ARG TOOLSET_RELEASE=latest
+ARG TOOLSET_INSTALLER_SHA256=
 
 ENV APACHE_LOG_DIR=/var/log/apache2 \
     SERVER_NAME=localhost \
@@ -39,17 +43,29 @@ COPY scripts/healthcheck.sh /usr/local/bin/healthcheck
 RUN set -eux; \
     curl -fsSL --retry 3 --retry-all-errors --retry-delay 1 \
       --connect-timeout 10 --max-time 120 \
-      "https://raw.githubusercontent.com/infocyph/Scriptomatic/main/bash/banner.sh" \
+      "https://raw.githubusercontent.com/infocyph/Scriptomatic/${SCRIPTOMATIC_REF}/bash/banner.sh" \
       -o /usr/local/bin/show-banner; \
     test -s /usr/local/bin/show-banner; \
     bash -n /usr/local/bin/show-banner; \
+    if [ "$TOOLSET_RELEASE" = latest ]; then \
+      toolset_installer_url="https://github.com/infocyph/Toolset/releases/latest/download/install.sh"; \
+    else \
+      toolset_installer_url="https://github.com/infocyph/Toolset/releases/download/${TOOLSET_RELEASE}/install.sh"; \
+    fi; \
     curl -fsSL --retry 3 --retry-all-errors --retry-delay 1 \
       --connect-timeout 10 --max-time 120 \
-      "https://github.com/infocyph/Toolset/releases/latest/download/install.sh" \
+      "$toolset_installer_url" \
       -o /tmp/toolset-install.sh; \
     test -s /tmp/toolset-install.sh; \
+    if [ -n "$TOOLSET_INSTALLER_SHA256" ]; then \
+      printf '%s  %s\n' "$TOOLSET_INSTALLER_SHA256" /tmp/toolset-install.sh | sha256sum -c -; \
+    fi; \
     bash -n /tmp/toolset-install.sh; \
-    bash /tmp/toolset-install.sh --prefix /usr/local/bin chromacat; \
+    if [ "$TOOLSET_RELEASE" = latest ]; then \
+      bash /tmp/toolset-install.sh --latest --prefix /usr/local/bin chromacat; \
+    else \
+      bash /tmp/toolset-install.sh --release "$TOOLSET_RELEASE" --prefix /usr/local/bin chromacat; \
+    fi; \
     chromacat --version; \
     rm -f /tmp/toolset-install.sh; \
     chmod +x \
