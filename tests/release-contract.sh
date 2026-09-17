@@ -16,13 +16,14 @@ for contract in \
   "releases/tags/\${MANUAL_RELEASE_TAG}" \
   'PUBLISH_RELEASE_TAG' \
   'Enforce immutable release tags' \
+  'Snapshot rolling upstream inputs' \
   'retry get_httpd_digest' \
   'retry get_scriptomatic_sha' \
   'retry get_toolset_release' \
-  'compare_value' \
   "HTTPD_ALPINE_REF=httpd:alpine@\${{ env.HTTPD_ALPINE_DIGEST }}" \
   "SCRIPTOMATIC_REF=\${{ env.SCRIPTOMATIC_MAIN_SHA }}" \
   "TOOLSET_RELEASE=\${{ env.TOOLSET_RELEASE }}" \
+  "TOOLSET_INSTALLER_SHA256=\${{ env.TOOLSET_INSTALLER_SHA256 }}" \
   'linux/amd64,linux/arm64' \
   'provenance: mode=max' \
   'sbom: true'; do
@@ -32,12 +33,22 @@ done
 grep -Fq "cron: '0 0 * * 0'" "$workflow"
 grep -Fq 'types: [published]' "$workflow"
 
-pinned_builds="$(grep -c 'HTTPD_ALPINE_REF=httpd:alpine@${{ env.HTTPD_ALPINE_DIGEST }}' "$workflow")"
-if [[ "$pinned_builds" -ne 3 ]]; then
-  echo "Expected all three publish builds to pin the httpd digest; found $pinned_builds." >&2
+for pinned_contract in \
+  'HTTPD_ALPINE_REF=httpd:alpine@${{ env.HTTPD_ALPINE_DIGEST }}' \
+  'SCRIPTOMATIC_REF=${{ env.SCRIPTOMATIC_MAIN_SHA }}' \
+  'TOOLSET_RELEASE=${{ env.TOOLSET_RELEASE }}' \
+  'TOOLSET_INSTALLER_SHA256=${{ env.TOOLSET_INSTALLER_SHA256 }}'; do
+  pinned_builds="$(grep -cF "$pinned_contract" "$workflow")"
+  if [[ "$pinned_builds" -ne 3 ]]; then
+    echo "Expected all three publish builds to use pinned input: $pinned_contract; found $pinned_builds." >&2
+    exit 1
+  fi
+done
+
+if grep -Fq 'Revalidate rolling upstreams before publish' "$workflow"; then
+  echo 'Publish workflow must not re-resolve mutable upstreams after immutable snapshotting.' >&2
   exit 1
 fi
-
 if grep -Fq 'imagetools inspect httpd:alpine | awk' "$workflow"; then
   echo 'Unsafe pipefail-sensitive httpd digest pipeline detected.' >&2
   exit 1
