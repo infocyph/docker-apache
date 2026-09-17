@@ -240,6 +240,7 @@ jobs:
             HTTPD_ALPINE_REF=httpd:alpine@${{ env.HTTPD_ALPINE_DIGEST }}
             SCRIPTOMATIC_REF=${{ env.SCRIPTOMATIC_MAIN_SHA }}
             TOOLSET_RELEASE=${{ env.TOOLSET_RELEASE }}
+            TOOLSET_INSTALLER_SHA256=${{ env.TOOLSET_INSTALLER_SHA256 }}
           cache-to: type=gha,scope=apache-publish-amd64,mode=max
 
       - name: Record candidate runtime resolution
@@ -286,6 +287,7 @@ jobs:
             HTTPD_ALPINE_REF=httpd:alpine@${{ env.HTTPD_ALPINE_DIGEST }}
             SCRIPTOMATIC_REF=${{ env.SCRIPTOMATIC_MAIN_SHA }}
             TOOLSET_RELEASE=${{ env.TOOLSET_RELEASE }}
+            TOOLSET_INSTALLER_SHA256=${{ env.TOOLSET_INSTALLER_SHA256 }}
           cache-to: type=gha,scope=apache-publish-arm64,mode=max
 
       - name: Final arm64 release-candidate gate
@@ -299,114 +301,6 @@ jobs:
             command -v htpasswd >/dev/null
             chromacat --version
           '
-
-      - name: Revalidate rolling upstreams before publish
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-
-          retry() {
-            local attempt=1 max_attempts=5
-            until "$@"; do
-              if (( attempt >= max_attempts )); then
-                echo "Command failed after ${max_attempts} attempts: $*" >&2
-                return 1
-              fi
-              echo "Retrying failed command in $((attempt * 2)) seconds: $*" >&2
-              sleep "$((attempt * 2))"
-              attempt=$((attempt + 1))
-            done
-          }
-
-          get_httpd_digest() {
-            local output digest
-            output="$(docker buildx imagetools inspect httpd:alpine 2>&1)" || {
-              echo "$output" >&2
-              return 1
-            }
-            digest="$(awk '$1 == "Digest:" {print $2; exit}' <<<"$output")"
-            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || {
-              echo 'Could not resolve a valid httpd:alpine digest.' >&2
-              return 1
-            }
-            printf '%s\n' "$digest"
-          }
-
-          get_scriptomatic_sha() {
-            local output sha
-            output="$(git ls-remote https://github.com/infocyph/Scriptomatic.git refs/heads/main 2>&1)" || {
-              echo "$output" >&2
-              return 1
-            }
-            sha="$(awk 'NF {print $1; exit}' <<<"$output")"
-            [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || {
-              echo 'Could not resolve a valid Scriptomatic main revision.' >&2
-              return 1
-            }
-            printf '%s\n' "$sha"
-          }
-
-          get_toolset_release() {
-            local tag
-            tag="$(gh api repos/infocyph/Toolset/releases/latest --jq '.tag_name // empty')" || return 1
-            [[ "$tag" =~ ^v?[0-9]+\.[0-9]+(\.[0-9]+)?(-rc\.[0-9]+)?$ ]] || {
-              echo "Could not resolve a valid latest Toolset release: $tag" >&2
-              return 1
-            }
-            printf '%s\n' "$tag"
-          }
-
-          get_installer_sha() {
-            local release="$1" file checksum_output sha
-            file="$(mktemp)"
-            if ! curl --fail --silent --show-error --location \
-              --retry 5 --retry-all-errors --retry-delay 2 \
-              --connect-timeout 15 --max-time 120 \
-              "https://github.com/infocyph/Toolset/releases/download/${release}/install.sh" \
-              -o "$file"; then
-              rm -f "$file"
-              return 1
-            fi
-            if [[ ! -s "$file" ]]; then
-              echo "Toolset installer is empty for release $release." >&2
-              rm -f "$file"
-              return 1
-            fi
-            checksum_output="$(sha256sum "$file")" || {
-              rm -f "$file"
-              return 1
-            }
-            rm -f "$file"
-            sha="${checksum_output%% *}"
-            [[ "$sha" =~ ^[0-9a-f]{64}$ ]] || {
-              echo "Could not calculate Toolset installer checksum for $release." >&2
-              return 1
-            }
-            printf '%s\n' "$sha"
-          }
-
-          compare_value() {
-            local name="$1" expected="$2" actual="$3"
-            if [[ "$expected" != "$actual" ]]; then
-              echo "$name changed during the publish build:" >&2
-              echo "  snapshot: $expected" >&2
-              echo "  current:  $actual" >&2
-              return 1
-            fi
-          }
-
-          current_httpd="$(retry get_httpd_digest)"
-          current_scriptomatic="$(retry get_scriptomatic_sha)"
-          current_toolset="$(retry get_toolset_release)"
-          current_installer="$(retry get_installer_sha "$current_toolset")"
-
-          compare_value 'httpd:alpine digest' "$HTTPD_ALPINE_DIGEST" "$current_httpd"
-          compare_value 'Scriptomatic main revision' "$SCRIPTOMATIC_MAIN_SHA" "$current_scriptomatic"
-          compare_value 'Toolset release' "$TOOLSET_RELEASE" "$current_toolset"
-          compare_value 'Toolset installer checksum' "$TOOLSET_INSTALLER_SHA256" "$current_installer"
-
-          echo 'Rolling upstream revalidation passed.'
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
@@ -477,6 +371,7 @@ jobs:
             HTTPD_ALPINE_REF=httpd:alpine@${{ env.HTTPD_ALPINE_DIGEST }}
             SCRIPTOMATIC_REF=${{ env.SCRIPTOMATIC_MAIN_SHA }}
             TOOLSET_RELEASE=${{ env.TOOLSET_RELEASE }}
+            TOOLSET_INSTALLER_SHA256=${{ env.TOOLSET_INSTALLER_SHA256 }}
           cache-from: |
             type=gha,scope=apache-publish-amd64
             type=gha,scope=apache-publish-arm64
